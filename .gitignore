@@ -1,0 +1,21 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+.env
+
+# Authentication data and live responses can contain personal data.
+data/
+debug/
+
+# Generated output.
+output/
+
+# Editors and operating systems.
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
