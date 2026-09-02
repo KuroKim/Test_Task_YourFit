@@ -1,3 +1,5 @@
+"""Проверка, сохранение и загрузка cookies Ozon без утечки их значений."""
+
 from __future__ import annotations
 
 import json
@@ -51,6 +53,7 @@ def save_browser_cookies(
     user_agent: str,
     current_url: str,
 ) -> int:
+    """Проверяет сессию Ozon и сохраняет cookies вместе с метаданными."""
     hostname = (urlparse(current_url).hostname or "").lower()
     if not _is_ozon_domain(hostname):
         raise CookieFileError("The browser is not on an Ozon domain")
@@ -74,6 +77,8 @@ def save_browser_cookies(
         "user_agent": user_agent,
         "cookies": validated,
     }
+    # Сначала пишем в соседний файл, чтобы прерванный процесс не оставил
+    # обрезанный файл авторизации, выглядящий корректным при следующем запуске.
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary_path = path.with_suffix(path.suffix + ".tmp")
     temporary_path.write_text(
@@ -85,6 +90,7 @@ def save_browser_cookies(
 
 
 def load_cookie_file(path: Path) -> dict[str, Any]:
+    """Загружает и проверяет версионированный файл cookies проекта."""
     if not path.is_file():
         raise CookieFileError(
             f"Cookie file not found: {path}. Run get_cookies.py first."
@@ -111,6 +117,7 @@ def load_cookie_file(path: Path) -> dict[str, Any]:
 
 
 def apply_cookies(session: requests.Session, cookies: Iterable[dict[str, Any]]) -> None:
+    """Заполняет cookie jar Requests с сохранением доменов и путей."""
     for cookie in cookies:
         rest: dict[str, Any] = {}
         if cookie.get("httpOnly"):
@@ -128,4 +135,3 @@ def apply_cookies(session: requests.Session, cookies: Iterable[dict[str, Any]]) 
             rest=rest,
         )
         session.cookies.set_cookie(prepared)
-

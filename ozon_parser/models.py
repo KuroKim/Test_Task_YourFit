@@ -1,3 +1,5 @@
+"""Типизированная модель товара и публичная схема CSV."""
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
@@ -8,6 +10,8 @@ Number = Union[int, float]
 
 @dataclass(frozen=True)
 class ProductRecord:
+    """Нормализованные поля одного запрошенного SKU Ozon."""
+
     sku: str
     title: Optional[str] = None
     price: Optional[Number] = None
@@ -22,6 +26,7 @@ class ProductRecord:
     has_rich_content: bool = False
 
     def to_row(self) -> dict[str, object]:
+        """Преобразует запись в словарь для ``csv.DictWriter``."""
         return asdict(self)
 
 
@@ -39,4 +44,3 @@ PRODUCT_COLUMNS = [
     "art_set",
     "has_rich_content",
 ]
-

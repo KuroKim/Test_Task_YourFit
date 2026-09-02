@@ -1,3 +1,5 @@
+"""Запись успешных товаров и ошибок отдельных SKU в CSV."""
+
 from __future__ import annotations
 
 import csv
@@ -16,6 +18,7 @@ def _csv_value(value: object) -> object:
 
 
 def write_products(path: Path, products: Iterable[ProductRecord]) -> None:
+    """Записывает товары в UTF-8 CSV со стабильным порядком колонок."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as file:
         writer = csv.DictWriter(file, fieldnames=PRODUCT_COLUMNS, lineterminator="\n")
@@ -25,10 +28,10 @@ def write_products(path: Path, products: Iterable[ProductRecord]) -> None:
 
 
 def write_errors(path: Path, errors: Iterable[dict[str, str]]) -> None:
+    """Записывает ошибки отдельно от основного CSV с товарами."""
     path.parent.mkdir(parents=True, exist_ok=True)
     columns = ["sku", "error_type", "message"]
     with path.open("w", encoding="utf-8", newline="") as file:
         writer = csv.DictWriter(file, fieldnames=columns, lineterminator="\n")
         writer.writeheader()
         writer.writerows(errors)
-

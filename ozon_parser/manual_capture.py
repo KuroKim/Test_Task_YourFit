@@ -1,3 +1,5 @@
+"""Ручной fallback с экспортом сессии Ozon через локальный CDP."""
+
 from __future__ import annotations
 
 import json
@@ -20,6 +22,8 @@ from .errors import CookieFileError
 
 @dataclass
 class ManualBrowser:
+    """Процесс браузера и изолированный профиль для одного запуска."""
+
     process: subprocess.Popen[Any]
     profile_dir: Path
     port: int
@@ -58,10 +62,13 @@ def launch_manual_browser(
     start_url: str,
     profiles_root: Path,
 ) -> ManualBrowser:
+    """Запускает обычный браузер с временным профилем и локальным CDP."""
     profiles_root.mkdir(parents=True, exist_ok=True)
     profile_dir = Path(tempfile.mkdtemp(prefix="ozon_", dir=profiles_root))
     port = _free_local_port()
     origin = f"http://127.0.0.1:{port}"
+    # Chromium требует отдельный каталог данных для удалённой отладки.
+    # Привязка к loopback не позволяет обращаться к сессии извне компьютера.
     command = [
         str(browser_binary),
         "--remote-debugging-address=127.0.0.1",
@@ -117,6 +124,7 @@ def _is_ozon_url(value: str) -> bool:
 
 
 def select_current_ozon_url(targets: list[dict[str, Any]]) -> str:
+    """Выбирает страницу Ozon, игнорируя workers и посторонние вкладки."""
     for target in targets:
         url = str(target.get("url", ""))
         if target.get("type") == "page" and _is_ozon_url(url):
@@ -143,6 +151,7 @@ def _current_ozon_target(browser: ManualBrowser) -> dict[str, Any]:
 
 
 def normalize_cdp_cookies(cookies: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Приводит поля CDP cookies к формату Selenium и Requests."""
     normalized = []
     for cookie in cookies:
         item = {
@@ -158,6 +167,7 @@ def normalize_cdp_cookies(cookies: list[dict[str, Any]]) -> list[dict[str, Any]]
 
 
 def capture_manual_session(browser: ManualBrowser) -> tuple[list[dict[str, Any]], str, str]:
+    """Читает cookies, User-Agent и текущий URL из ручного браузера."""
     version = _wait_for_debug_endpoint(browser.port, timeout=5)
     current_url = str(_current_ozon_target(browser)["url"])
 
@@ -181,6 +191,7 @@ def capture_manual_session(browser: ManualBrowser) -> tuple[list[dict[str, Any]]
 
 
 def capture_current_page_html(browser: ManualBrowser) -> tuple[str, str]:
+    """Возвращает URL активной страницы Ozon и её отрисованный HTML."""
     target = _current_ozon_target(browser)
     websocket_url = target.get("webSocketDebuggerUrl")
     if not isinstance(websocket_url, str):
@@ -209,6 +220,7 @@ def capture_current_page_html(browser: ManualBrowser) -> tuple[str, str]:
 
 
 def close_manual_browser(browser: ManualBrowser) -> None:
+    """Закрывает браузер и удаляет временный профиль даже после ошибки."""
     try:
         version = _wait_for_debug_endpoint(browser.port, timeout=2)
         connection = websocket.create_connection(

@@ -1,16 +1,16 @@
-"""Domain-specific exceptions shown as concise messages by the entrypoints."""
+"""Предметные исключения с понятными сообщениями для пользователя."""
 
 
 class OzonParserError(Exception):
-    """Base exception for expected application errors."""
+    """Базовое исключение для ожидаемых ошибок приложения."""
 
 
 class CookieFileError(OzonParserError):
-    """The cookie file is missing, unsafe, or has an unexpected structure."""
+    """Файл cookies отсутствует, небезопасен или имеет неверную структуру."""
 
 
 class PageRequestError(OzonParserError):
-    """A product page cannot be used because of its HTTP response."""
+    """HTTP-ответ не позволяет использовать карточку товара."""
 
     def __init__(self, error_type: str, message: str) -> None:
         super().__init__(message)
@@ -18,5 +18,4 @@ class PageRequestError(OzonParserError):
 
 
 class PageExtractionError(OzonParserError):
-    """Embedded product data is absent or malformed."""
-
+    """Встроенные данные товара отсутствуют или повреждены."""

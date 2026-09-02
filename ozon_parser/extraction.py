@@ -1,3 +1,5 @@
+"""Извлечение нормализованных полей из JSON внутри HTML-страниц Ozon."""
+
 from __future__ import annotations
 
 import ast
@@ -26,7 +28,7 @@ def _compact_text(value: str) -> str:
 
 
 def normalize_number(value: object) -> Optional[Number]:
-    """Return the first human-formatted number as int or float."""
+    """Возвращает первое отформатированное число как int или float."""
     if isinstance(value, bool) or value is None:
         return None
     if isinstance(value, (int, float)):
@@ -53,6 +55,7 @@ def normalize_number(value: object) -> Optional[Number]:
 
 
 def normalize_integer(value: object) -> Optional[int]:
+    """Нормализует целое число с учётом суффиксов тысяч и миллионов."""
     number = normalize_number(value)
     if number is None:
         return None
@@ -101,7 +104,7 @@ def _decode_script_json(raw: str) -> list[Any]:
     except json.JSONDecodeError:
         pass
 
-    # Handles common assignments such as window.__INITIAL_STATE__ = {...};
+    # Поддерживаем распространённые присваивания вида window.__INITIAL_STATE__ = {...};
     decoder = json.JSONDecoder()
     candidates: list[Any] = []
     for match in re.finditer(r"[\[{]", text):
@@ -132,6 +135,7 @@ def _deep_decode(value: Any, depth: int = 0) -> Any:
 
 
 def extract_json_documents(page_html: str) -> list[Any]:
+    """Декодирует JSON-скрипты, JavaScript state и атрибуты ``data-state``."""
     soup = BeautifulSoup(page_html, "html.parser")
     documents: list[Any] = []
     for script in soup.find_all("script"):
@@ -150,6 +154,8 @@ def extract_json_documents(page_html: str) -> list[Any]:
         )
         if should_try and raw:
             documents.extend(_decode_script_json(raw))
+    # Текущие страницы Ozon хранят виджеты в атрибутах data-state, а не только
+    # в одном общем скрипте, поэтому поддерживаются оба представления.
     for tag in soup.find_all(attrs={"data-state": True}):
         raw_state = tag.get("data-state")
         if not isinstance(raw_state, str) or not raw_state.strip():
@@ -214,7 +220,7 @@ def _select_product_context(documents: list[Any], sku: str) -> dict[str, Any]:
 def _relevant_product_nodes(
     documents: list[Any], sku: str, primary: dict[str, Any]
 ) -> list[dict[str, Any]]:
-    """Collect product widgets tied to this SKU without using recommendations."""
+    """Собирает виджеты нужного SKU, не захватывая рекомендованные товары."""
     relevant = [primary]
     seen = {id(primary)}
     for document in documents:
@@ -315,8 +321,8 @@ def _find_normalized(
     context_list = list(contexts)
     alias_list = list(aliases)
 
-    # Product-level fields must win over nested objects. Otherwise a generic
-    # key such as "name" may resolve to the name of a characteristic.
+    # Поля уровня товара имеют приоритет над вложенными объектами. Иначе общий
+    # ключ вроде "name" может вернуть название характеристики.
     for context in context_list:
         if not isinstance(context, dict):
             continue
@@ -343,12 +349,13 @@ def extract_characteristic(
     labels: Iterable[str],
     identifier_prefixes: Iterable[str] = (),
 ) -> Optional[str]:
+    """Ищет характеристику по подписи или стабильному идентификатору."""
     wanted = {_normal_key(label) for label in labels}
     wanted_identifiers = {_normal_key(prefix) for prefix in identifier_prefixes}
 
-    # Ozon's characteristic widgets use stable identifiers such as Color_1 and
-    # Material_3. Prefer the complete characteristic object so that nested UI
-    # properties such as ``color: textPrimary`` cannot be mistaken for values.
+    # Виджеты Ozon используют стабильные идентификаторы вроде Color_1 и
+    # Material_3. Сначала обрабатываем объект характеристики целиком, чтобы
+    # служебное поле ``color: textPrimary`` не стало цветом товара.
     for current in _walk_dicts(node):
         normalized = {_normal_key(key): value for key, value in current.items()}
         name = None
@@ -374,8 +381,8 @@ def extract_characteristic(
                 if result:
                     return result
 
-    # Some embedded product documents expose characteristics as a plain map.
-    # Keep that representation as a lower-priority fallback.
+    # В некоторых документах характеристики представлены обычным словарём.
+    # Сохраняем этот формат как менее приоритетный fallback.
     for current in _walk_dicts(node):
         normalized = {_normal_key(key): value for key, value in current.items()}
         for label in wanted:
@@ -389,7 +396,7 @@ def extract_characteristic(
 def _extract_dom_characteristic(
     page_html: str, labels: Iterable[str]
 ) -> Optional[str]:
-    """Read an exact label/value pair from Ozon's semantic characteristics widget."""
+    """Читает точную пару подпись/значение из виджета характеристик Ozon."""
     wanted = {_normal_key(label) for label in labels}
     soup = BeautifulSoup(page_html, "html.parser")
     widget = soup.find(attrs={"data-widget": "webCharacteristics"})
@@ -449,6 +456,7 @@ def _media_item_urls(value: Any, default_kind: str) -> tuple[set[str], set[str]]
 
 
 def count_seller_media(node: Any, cover_image: Optional[str] = None) -> tuple[Optional[int], Optional[int]]:
+    """Считает уникальные фото и видео продавца, включая обложку."""
     image_keys = {"images", "photos", "gallery", "mediagallery", "productimages"}
     video_keys = {"videos", "productvideos", "videogallery"}
     blocked_keys = {"description", "richcontent", "richdescription"}
@@ -523,6 +531,7 @@ def _contains_rich_element(value: Any) -> bool:
 
 
 def has_rich_content(node: Any) -> bool:
+    """Проверяет наличие изображений, таблиц или списков в описании."""
     rich_keys = {"richcontent", "richdescription", "description", "productdescription"}
     for current in _walk_dicts(node):
         for key, value in current.items():
@@ -532,6 +541,7 @@ def has_rich_content(node: Any) -> bool:
 
 
 def parse_product_html(sku: str, page_html: str) -> ProductRecord:
+    """Извлекает все требуемые поля ``sku`` из одной карточки Ozon."""
     documents = extract_json_documents(page_html)
     if not documents:
         raise PageExtractionError("No readable embedded JSON was found in the page")

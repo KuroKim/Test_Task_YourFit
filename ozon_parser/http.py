@@ -1,3 +1,5 @@
+"""Настройка HTTP-сессии, повторов и проверка ответов Ozon."""
+
 from __future__ import annotations
 
 import re
@@ -22,6 +24,7 @@ _ANTIBOT_TEXT_MARKERS = (
 
 
 def create_session(cookie_path: Path, retries: int, backoff: float) -> requests.Session:
+    """Создаёт браузероподобную Requests-сессию из сохранённой сессии."""
     payload = load_cookie_file(cookie_path)
     session = requests.Session()
     session.headers.update(
@@ -36,6 +39,8 @@ def create_session(cookie_path: Path, retries: int, backoff: float) -> requests.
     )
     apply_cookies(session, payload["cookies"])
 
+    # urllib3 повторяет только временные ошибки; проблемы авторизации и парсинга
+    # сразу возвращаются с отдельными типами предметных ошибок.
     retry = Retry(
         total=retries,
         connect=retries,
@@ -63,6 +68,7 @@ def _looks_like_login(response: requests.Response) -> bool:
 
 
 def validate_response(response: requests.Response) -> None:
+    """Классифицирует HTTP-ошибки, авторизацию, пустые и антибот-страницы."""
     if response.status_code == 403:
         raise PageRequestError("http_403", "Ozon returned HTTP 403 (access forbidden)")
     if response.status_code == 404:
@@ -85,12 +91,14 @@ def validate_response(response: requests.Response) -> None:
 
 
 def fetch_product_page(session: requests.Session, sku: str, timeout: float) -> requests.Response:
+    """Загружает и проверяет одну публичную карточку товара Ozon."""
     response = session.get(PRODUCT_URL.format(sku=sku), timeout=timeout)
     validate_response(response)
     return response
 
 
 def save_debug_html(debug_dir: Path, sku: str, html: str) -> Path:
+    """Сохраняет диагностический HTML под безопасным именем на основе SKU."""
     debug_dir.mkdir(parents=True, exist_ok=True)
     safe_sku = re.sub(r"[^0-9A-Za-z_-]", "_", sku)
     path = debug_dir / f"product_{safe_sku}.html"

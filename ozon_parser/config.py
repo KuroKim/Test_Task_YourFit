@@ -1,3 +1,5 @@
+"""Настройки путей и сети, загружаемые из переменных окружения."""
+
 from __future__ import annotations
 
 import os
@@ -37,6 +39,8 @@ def _env_int(name: str, default: int) -> int:
 
 @dataclass(frozen=True)
 class Settings:
+    """Проверенные настройки выполнения для консольного парсера."""
+
     cookies_path: Path
     output_path: Path
     errors_path: Path
@@ -48,6 +52,7 @@ class Settings:
 
     @classmethod
     def from_env(cls) -> "Settings":
+        """Создаёт настройки из переменных окружения и значений по умолчанию."""
         return cls(
             cookies_path=_env_path("OZON_COOKIES_PATH", "data/cookies.json"),
             output_path=_env_path("OZON_OUTPUT_PATH", "output/products.csv"),
@@ -58,4 +63,3 @@ class Settings:
             retry_backoff=_env_float("OZON_RETRY_BACKOFF", 1.0),
             request_delay=_env_float("OZON_REQUEST_DELAY", 1.5),
         )
-

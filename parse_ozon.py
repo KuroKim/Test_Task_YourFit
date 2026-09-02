@@ -1,3 +1,5 @@
+"""Загружает карточки Ozon и экспортирует нормализованные данные в CSV."""
+
 from __future__ import annotations
 
 import argparse
@@ -34,6 +36,7 @@ def _valid_sku(value: str) -> str:
 
 
 def parse_args(settings: Settings) -> argparse.Namespace:
+    """Разбирает источники SKU, пути результатов и сетевые параметры."""
     parser = argparse.ArgumentParser(description="Parse Ozon product cards into CSV.")
     parser.add_argument("skus", nargs="*", type=_valid_sku, help="Product SKUs")
     parser.add_argument("--sku-file", type=Path, help="UTF-8 text file with one SKU per line")
@@ -59,6 +62,7 @@ def parse_args(settings: Settings) -> argparse.Namespace:
 
 
 def collect_skus(args: argparse.Namespace) -> list[str]:
+    """Объединяет SKU из аргументов и файла с сохранением порядка."""
     values = list(args.skus)
     if args.sku_file:
         try:
@@ -71,6 +75,7 @@ def collect_skus(args: argparse.Namespace) -> list[str]:
 
 
 def main() -> int:
+    """Обрабатывает все SKU, не прерывая пакет из-за единичной ошибки."""
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     session: requests.Session | None = None
     try:

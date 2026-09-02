@@ -1,3 +1,5 @@
+"""Открывает видимый браузер для ручного входа в Ozon и сохраняет сессию."""
+
 from __future__ import annotations
 
 import argparse
@@ -27,6 +29,7 @@ START_URL = "https://data.ozon.ru/"
 
 
 def find_browser_binary(browser: str) -> Path | None:
+    """Возвращает настроенный или найденный в стандартном каталоге браузер."""
     env_names = {
         "chrome": "OZON_CHROME_BINARY",
         "edge": "OZON_EDGE_BINARY",
@@ -68,7 +71,10 @@ def find_browser_binary(browser: str) -> Path | None:
 
 
 def detect_yandex_chromium_major(browser_binary: Path) -> str | None:
+    """Определяет major-версию Chromium внутри файлов Яндекс.Браузера."""
     pattern = re.compile(rb"Chrome/(\d+)\.\d+\.\d+\.\d+")
+    # browser.exe сообщает версию самого Яндекс.Браузера, а browser.dll также
+    # содержит версию Chromium, которая нужна для подбора ChromeDriver.
     version_dlls = sorted(
         browser_binary.parent.glob("*/browser.dll"),
         key=lambda path: path.stat().st_mtime,
@@ -89,6 +95,7 @@ def detect_yandex_chromium_major(browser_binary: Path) -> str | None:
 
 
 def find_local_chromedriver(required_major: str) -> Path | None:
+    """Возвращает локальный ChromeDriver только при совместимой major-версии."""
     configured = os.getenv("OZON_CHROMEDRIVER_PATH")
     path = (
         Path(configured).expanduser()
@@ -119,6 +126,7 @@ def find_local_chromedriver(required_major: str) -> Path | None:
 
 
 def parse_args() -> argparse.Namespace:
+    """Разбирает аргументы выбора браузера и пути сохранения сессии."""
     parser = argparse.ArgumentParser(
         description="Open Ozon Analytics for manual sign-in and save browser cookies."
     )
@@ -148,6 +156,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def create_driver(browser: str, browser_version: str | None = None):
+    """Создаёт видимый Selenium-драйвер для выбранного браузера."""
     binary_path = find_browser_binary(browser)
     if browser in {"chrome", "yandex"}:
         options = webdriver.ChromeOptions()
@@ -173,6 +182,7 @@ def create_driver(browser: str, browser_version: str | None = None):
 
 
 def print_login_instructions() -> None:
+    """Выводит ручные действия, необходимые перед экспортом cookies."""
     print(
         "\nComplete these steps in the opened browser:\n"
         "  1. Pass Ozon's anti-bot check if it appears.\n"
@@ -185,6 +195,7 @@ def print_login_instructions() -> None:
 
 
 def main() -> int:
+    """Запускает выбранный сценарий браузера и возвращает код завершения."""
     args = parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     driver = None
